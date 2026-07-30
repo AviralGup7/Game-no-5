@@ -12,6 +12,7 @@ import 'package:large_print_nonogram/models/game_state.dart';
 import 'package:large_print_nonogram/services/settings.dart';
 import 'package:large_print_nonogram/services/progress.dart';
 import 'package:large_print_nonogram/services/daily_puzzle.dart';
+import 'package:large_print_nonogram/services/ads.dart';
 import 'package:large_print_nonogram/services/audio.dart';
 import 'package:large_print_nonogram/widgets/app_theme.dart';
 import 'package:large_print_nonogram/widgets/nonogram_board.dart';
@@ -323,6 +324,103 @@ void main() {
         g.setMark(i, p.solution[i] ? kMarkFilled : kMarkEmpty);
       }
       expect(g.nextHint(), isNull);
+    });
+  });
+
+  group('Regressions', () {
+    test('auto-cross must NOT trigger on a wrong-but-right-sized line', () {
+      // The bug: auto-cross compared only the COUNT of filled cells against
+      // the clue total. Fill the right NUMBER of squares in the wrong PLACES
+      // and the app confidently crossed out squares that needed filling -
+      // the app telling the player something false.
+      final p = Generator(4242).generate(Difficulty.gentle);
+      final g = GameState(p);
+
+      // Find a row with at least one filled and one empty editable cell.
+      int? target;
+      for (var r = 0; r < p.height; r++) {
+        var filled = 0, empty = 0;
+        for (var c = 0; c < p.width; c++) {
+          final i = r * p.width + c;
+          if (!g.isEditable(i)) continue;
+          p.solution[i] ? filled++ : empty++;
+        }
+        if (filled >= 1 && empty >= 1) {
+          target = r;
+          break;
+        }
+      }
+      expect(target, isNotNull, reason: 'need a mixed row for this test');
+
+      // Deliberately fill the WRONG cells, keeping the count correct.
+      final wrong = <int>[];
+      final right = <int>[];
+      for (var c = 0; c < p.width; c++) {
+        final i = target! * p.width + c;
+        if (!g.isEditable(i)) continue;
+        (p.solution[i] ? right : wrong).add(i);
+      }
+      final n = right.length < wrong.length ? right.length : wrong.length;
+      g.tool = Tool.fill;
+      for (var k = 0; k < n; k++) {
+        g.setMark(wrong[k], kMarkFilled);
+      }
+
+      // A row that is filled wrongly must never be treated as satisfied.
+      expect(g.isRowComplete(target!), isFalse,
+          reason: 'a wrongly-filled row was reported complete');
+    });
+
+    test('isRowComplete only accepts the CORRECT squares', () {
+      final p = Generator(99).generate(Difficulty.gentle);
+      final g = GameState(p);
+      for (var r = 0; r < p.height; r++) {
+        var any = false;
+        for (var c = 0; c < p.width; c++) {
+          final i = r * p.width + c;
+          if (p.solution[i] && g.isEditable(i)) {
+            g.setMark(i, kMarkFilled);
+            any = true;
+          }
+        }
+        if (any) {
+          expect(g.isRowComplete(r), isTrue);
+        }
+      }
+    });
+
+    test('grouped cells undo as ONE action', () {
+      // Auto-cross can mark a dozen squares from one tap. Undoing that must
+      // take one press, not thirteen.
+      final p = Generator(555).generate(Difficulty.gentle);
+      final g = GameState(p);
+      final editable = List.generate(p.cellCount, (i) => i)
+          .where(g.isEditable)
+          .toList();
+      expect(editable.length, greaterThan(4));
+
+      g.setMark(editable[0], kMarkFilled);
+      final before = List<int>.of(g.marks);
+
+      // One player action, then three cells attached to it.
+      g.setMark(editable[1], kMarkEmpty);
+      final grouped = <int>[editable[2], editable[3]];
+      for (final i in grouped) {
+        g.setMark(i, kMarkEmpty);
+      }
+      g.groupWithPrevious(grouped);
+
+      g.undo();
+      expect(g.marks, before,
+          reason: 'one undo press did not clear the whole grouped action');
+    });
+
+    test('a paid-up player is never shown a rewarded ad', () async {
+      final s = Settings();
+      await s.load();
+      await s.setAdFree(true);
+      final ads = AdService(s);
+      expect(await ads.showRewarded(), isTrue);
     });
   });
 

@@ -10,7 +10,6 @@
 library;
 
 import 'dart:io' show Platform;
-import 'package:flutter/material.dart';
 import 'package:google_mobile_ads/google_mobile_ads.dart';
 import 'settings.dart';
 
@@ -87,9 +86,15 @@ class AdService {
     _last = DateTime.now();
   }
 
-  /// True if the hint should be granted. If no ad is loaded we grant it
-  /// anyway - punishing a player for our fill rate earns one-star reviews.
-  Future<bool> showRewarded(BuildContext context) async {
+  /// True if the hint should be granted.
+  ///
+  /// Two ways this returns true without showing anything:
+  ///   * the player BOUGHT ad removal - charging them attention after they
+  ///     paid money is the fastest way to make the purchase feel like a con;
+  ///   * no ad is loaded - punishing a player for our fill rate earns
+  ///     one-star reviews.
+  Future<bool> showRewarded() async {
+    if (settings.adFree) return true;
     final a = _reward;
     if (a == null) {
       _loadReward();

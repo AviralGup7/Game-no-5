@@ -100,33 +100,65 @@ class _GameScreenState extends State<GameScreen>
   /// Cross out the rest of a line once its clues are satisfied. This is the
   /// tedious bookkeeping half of a nonogram, and doing it by hand on a 12x12
   /// is where people give up.
-  void _autoCross() {
-    if (!widget.settings.autoCross) return;
+  /// Cross out the rest of a line once its clues are fully satisfied.
+  ///
+  /// This is the tedious bookkeeping half of a nonogram, and doing it by hand
+  /// on a 12x12 is where people give up.
+  ///
+  /// CRITICAL: a line only qualifies when its filled squares are the CORRECT
+  /// squares. An earlier version compared only the COUNT of filled cells
+  /// against the clue total, which meant a row with the right number of
+  /// squares filled in the wrong places would trigger auto-cross - and the app
+  /// would confidently cross out squares that actually needed filling. That is
+  /// the app telling the player something false, which is far worse than not
+  /// helping at all.
+  ///
+  /// Returns the cells it crossed out, so the caller can group them into a
+  /// single undo step.
+  List<int> _autoCross() {
+    final crossed = <int>[];
+    if (!widget.settings.autoCross) return crossed;
     final p = g.puzzle;
-    for (var r = 0; r < p.height; r++) {
-      var filled = 0;
-      for (var c = 0; c < p.width; c++) {
-        if (g.marks[r * p.width + c] == kMarkFilled) filled++;
-      }
-      final need = p.rowClues[r].fold<int>(0, (a, b) => a + b);
-      if (filled != need) continue;
+
+    bool rowSatisfied(int r) {
       for (var c = 0; c < p.width; c++) {
         final i = r * p.width + c;
-        if (g.marks[i] == kMarkNone) g.setMark(i, kMarkEmpty);
+        if (p.solution[i] && g.marks[i] != kMarkFilled) return false;
+        if (!p.solution[i] && g.marks[i] == kMarkFilled) return false;
+      }
+      return true;
+    }
+
+    bool colSatisfied(int c) {
+      for (var r = 0; r < p.height; r++) {
+        final i = r * p.width + c;
+        if (p.solution[i] && g.marks[i] != kMarkFilled) return false;
+        if (!p.solution[i] && g.marks[i] == kMarkFilled) return false;
+      }
+      return true;
+    }
+
+    for (var r = 0; r < p.height; r++) {
+      if (!rowSatisfied(r)) continue;
+      for (var c = 0; c < p.width; c++) {
+        final i = r * p.width + c;
+        if (g.marks[i] == kMarkNone) {
+          g.setMark(i, kMarkEmpty);
+          crossed.add(i);
+        }
       }
     }
     for (var c = 0; c < p.width; c++) {
-      var filled = 0;
-      for (var r = 0; r < p.height; r++) {
-        if (g.marks[r * p.width + c] == kMarkFilled) filled++;
-      }
-      final need = p.colClues[c].fold<int>(0, (a, b) => a + b);
-      if (filled != need) continue;
+      if (!colSatisfied(c)) continue;
       for (var r = 0; r < p.height; r++) {
         final i = r * p.width + c;
-        if (g.marks[i] == kMarkNone) g.setMark(i, kMarkEmpty);
+        if (g.marks[i] == kMarkNone) {
+          g.setMark(i, kMarkEmpty);
+          crossed.add(i);
+        }
       }
     }
+    return crossed;
   }
 
   void _tapCell(int i) {
@@ -144,7 +176,7 @@ class _GameScreenState extends State<GameScreen>
       if (wrong) {
         _shake.forward(from: 0);
       } else {
-        _autoCross();
+        g.groupWithPrevious(_autoCross());
       }
     });
     if (g.isSolved) _win();
@@ -161,7 +193,7 @@ class _GameScreenState extends State<GameScreen>
         _haptic(false);
         _shake.forward(from: 0);
       } else {
-        _autoCross();
+        g.groupWithPrevious(_autoCross());
       }
       _hintIndex = null;
     });
@@ -194,7 +226,7 @@ class _GameScreenState extends State<GameScreen>
       _toast('Nothing left to work out');
       return;
     }
-    final granted = await widget.ads.showRewarded(context);
+    final granted = await widget.ads.showRewarded();
     if (!granted || !mounted) return;
     setState(() {
       g.setMark(h.index, h.value == kFilled ? kMarkFilled : kMarkEmpty);
@@ -202,7 +234,7 @@ class _GameScreenState extends State<GameScreen>
       g.hintsUsed++;
       g.selected = h.index;
       _hintIndex = h.index;
-      _autoCross();
+      g.groupWithPrevious(_autoCross());
     });
     _haptic(true);
     AudioService.instance.play(Sfx.hintUsed);

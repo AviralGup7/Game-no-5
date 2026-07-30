@@ -1,4 +1,16 @@
 /// Single non-consumable purchase: remove ads. One-time, never a subscription.
+///
+/// LIMITATION, stated plainly: there is NO server-side receipt verification.
+/// The app trusts the purchase stream, so a rooted device can spoof ad removal.
+///
+/// That is a deliberate trade for a one-off unlock at this price point — the
+/// alternative is a backend, which means running a server, holding user data,
+/// and breaking the app's "works completely offline" promise. The downside is
+/// bounded: the worst case is someone gets an ad-free app for free, not a
+/// revenue leak that scales.
+///
+/// If this ever guards anything of real value, verify with the Play Developer
+/// API before granting the entitlement.
 library;
 
 import 'dart:async';

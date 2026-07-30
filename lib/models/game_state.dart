@@ -33,7 +33,13 @@ class _Move {
   final int index;
   final int before;
   final int after;
-  const _Move(this.index, this.before, this.after);
+
+  /// True when this entry is part of the SAME player action as the entry
+  /// before it. One tap that auto-crosses a dozen squares is one action, and
+  /// undoing it must take one press, not thirteen.
+  final bool grouped;
+
+  const _Move(this.index, this.before, this.after, {this.grouped = false});
 }
 
 class GameState {
@@ -119,15 +125,35 @@ class GameState {
     _push(i, kMarkNone);
   }
 
-  void _push(int i, int next) {
-    _undo.add(_Move(i, marks[i], next));
+  void _push(int i, int next, {bool grouped = false}) {
+    _undo.add(_Move(i, marks[i], next, grouped: grouped));
     marks[i] = next;
     if (_undo.length > 400) _undo.removeAt(0);
   }
 
+  /// Attach [cells] to the previous action so they undo together.
+  ///
+  /// Used by auto-cross: the squares it fills in were not separate decisions
+  /// by the player, so they must not cost separate undo presses.
+  void groupWithPrevious(List<int> cells) {
+    if (cells.isEmpty) return;
+    for (var k = _undo.length - cells.length; k < _undo.length; k++) {
+      if (k < 0) continue;
+      final m = _undo[k];
+      _undo[k] = _Move(m.index, m.before, m.after, grouped: true);
+    }
+  }
+
   bool get canUndo => _undo.isNotEmpty;
 
+  /// Undo one PLAYER ACTION, which may span several cells.
   void undo() {
+    if (_undo.isEmpty) return;
+    // Peel off every grouped entry, then the action that started the group.
+    while (_undo.isNotEmpty && _undo.last.grouped) {
+      final m = _undo.removeLast();
+      marks[m.index] = m.before;
+    }
     if (_undo.isEmpty) return;
     final m = _undo.removeLast();
     marks[m.index] = m.before;
