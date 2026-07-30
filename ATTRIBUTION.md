@@ -35,9 +35,9 @@ pack v1.0, released **CC0**.
 | File in repo | Original | Used for |
 |---|---|---|
 | `select_start.ogg` | `select_001.ogg` | Finger touches a square |
-| `word_found.ogg` | `confirmation_001.ogg` | A correct number is entered |
-| `word_wrong.ogg` | `drop_001.ogg` | An entry contradicts the puzzle |
-| `puzzle_complete.ogg` | `confirmation_004.ogg` | Puzzle solved |
+| `word_found.ogg` | `confirmation_001.ogg` | A square is filled or crossed correctly |
+| `word_wrong.ogg` | `drop_001.ogg` | A mark contradicts the picture |
+| `puzzle_complete.ogg` | `confirmation_004.ogg` | The picture is complete |
 | `streak_up.ogg` | `confirmation_002.ogg` | Daily streak extended |
 | `hint_used.ogg` | `bong_001.ogg` | Hint revealed |
 | `button_tap.ogg` | `click_001.ogg` | Any button press |
@@ -55,7 +55,7 @@ resampled to 22.05 kHz, re-encoded Vorbis q1 (~4 KB each).
 Choices here follow the same accessibility thesis as the rest of the app:
 
 - **`word_wrong` is a soft click, not a buzzer.** Older players who have just
-  entered a wrong number are already mildly frustrated; a harsh error tone reads
+  marked a square wrongly are already mildly frustrated; a harsh error tone reads
   as being told off. Kenney's `error_*.ogg` files were deliberately rejected.
 - **Music defaults to OFF.** Audio that starts unprompted is an uninstall
   trigger for this audience — many play near others, in care settings, or with
