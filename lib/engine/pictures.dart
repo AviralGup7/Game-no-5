@@ -18,6 +18,8 @@
 ///     to reason about than a row of 1s.
 library;
 
+import 'pictures_extra.dart';
+
 class Picture {
   final String name;
   final int size;
@@ -28,7 +30,8 @@ class Picture {
   bool at(int r, int c) => cells[r * size + c];
 }
 
-Picture _p(String name, List<String> rows) {
+/// Shared builder, also used by `pictures_extra.dart`.
+Picture buildPicture(String name, List<String> rows) {
   final size = rows.length;
   for (final r in rows) {
     if (r.length != size) {
@@ -47,6 +50,8 @@ Picture _p(String name, List<String> rows) {
 
 // ---------------------------------------------------------------- 5 x 5 ----
 // Gentle. Big simple silhouettes; a first-time player must succeed here.
+
+Picture _p(String name, List<String> rows) => buildPicture(name, rows);
 
 final List<Picture> pictures5 = [
   _p('Heart', [
@@ -507,10 +512,10 @@ final List<Picture> pictures12 = [
 
 /// Every picture, grouped by grid size.
 final Map<int, List<Picture>> pictureLibrary = {
-  5: pictures5,
-  8: pictures8,
-  10: pictures10,
-  12: pictures12,
+  5: [...pictures5, ...extra5],
+  8: [...pictures8, ...extra8],
+  10: [...pictures10, ...extra10],
+  12: [...pictures12, ...extra12],
 };
 
 /// Total pictures available — a puzzle-variety figure worth asserting on, so a
